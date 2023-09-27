@@ -10,8 +10,10 @@
   let todo = "";
 
   function handleSubmit() {
-    addTodo(todo);
-    todo = "";
+    if (todo.length > 0) {
+      addTodo(todo);
+      todo = "";
+    }
   }
 </script>
 

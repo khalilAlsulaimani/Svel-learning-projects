@@ -1,27 +1,29 @@
 <script lang="ts">
+  import { tick } from "svelte";
+
   import type { FiltersType, ITodo } from "$root/types/todo";
+  import { useStorage } from "$root/stores/useStorage";
 
   import AddTodo from "./AddTodo.svelte";
   import Todo from "./Todo.svelte";
   import TodosLeft from "./TodosLeft.svelte";
   import FilterTodos from "./FilterTodos.svelte";
+  import ClearTodos from "./ClearTodos.svelte";
 
-  let todos: ITodo[] = [
-    { id: "1e4a59703af84", text: "Todo 1", completed: true },
-    { id: "9e09bcd7b9349", text: "Todo 2", completed: false },
-    { id: "9e4273a51a37c", text: "Todo 3", completed: false },
-    { id: "53ae48bf605cc", text: "Todo 4", completed: false },
-  ];
+  let todos = useStorage<ITodo[]>("todos", []);
 
   let selectedFilter: FiltersType = "all";
-
-  // debug
-  $: console.log(todos);
+  let filtering = false;
 
   // compute
-  $: todoAmount = todos.length;
-  $: incompleteTodos = todos.filter((todo) => !todo.completed).length;
-  $: filterdTodos = filterTodo(todos, selectedFilter);
+  $: todoAmount = $todos.length;
+  $: incompleteTodos = $todos.filter((todo) => !todo.completed).length;
+  $: filterdTodos = filterTodo($todos, selectedFilter);
+  $: completedTodos = $todos.filter((todo) => todo.completed).length;
+  $: duration = filtering ? 0 : 250;
+
+  // debug
+  $: console.log(duration);
 
   // methods
 
@@ -36,20 +38,20 @@
       completed: false,
     };
 
-    todos = [...todos, newTodo];
+    $todos = [...$todos, newTodo];
   }
 
   function toggleCompleted(event: MouseEvent): void {
     let { checked } = event.target as HTMLInputElement;
 
-    todos = todos.map((todos) => ({
+    $todos = $todos.map((todos) => ({
       ...todos,
       completed: checked,
     }));
   }
 
   function completedTodo(id: string): void {
-    todos = todos.map((todo) => {
+    $todos = $todos.map((todo) => {
       if (todo.id === id) {
         todo.completed = !todo.completed;
       }
@@ -59,16 +61,20 @@
   }
 
   function removeTodo(id: string): void {
-    todos = todos.filter((todo) => todo.id !== id);
+    $todos = $todos.filter((todo) => todo.id !== id);
   }
 
   function editTodo(id: string, newTodo: string): void {
-    let currentTodo = todos.findIndex((todo) => todo.id === id);
-    todos[currentTodo].text = newTodo;
+    let currentTodo = $todos.findIndex((todo) => todo.id === id);
+    $todos[currentTodo].text = newTodo;
   }
 
-  function setFilter(newFilter: FiltersType) {
+  async function setFilter(newFilter: FiltersType): Promise<void> {
+    filtering = true;
+    await tick();
     selectedFilter = newFilter;
+    await tick();
+    filtering = false;
   }
 
   function filterTodo(todos: ITodo[], filter: FiltersType): ITodo[] {
@@ -81,6 +87,9 @@
         return todos.filter((todo) => todo.completed);
     }
   }
+  function clearCompleted(): void {
+    $todos = $todos.filter((todo) => todo.completed !== true);
+  }
 </script>
 
 <main>
@@ -92,14 +101,14 @@
     {#if todoAmount}
       <ul class="to-do-list">
         {#each filterdTodos as todo (todo.id)}
-          <Todo {todo} {completedTodo} {removeTodo} {editTodo} />
+          <Todo {todo} {completedTodo} {removeTodo} {editTodo} {duration} />
         {/each}
       </ul>
 
       <div class="actions">
         <TodosLeft {incompleteTodos} />
         <FilterTodos {selectedFilter} {setFilter} />
-        <button class="clear-completed">Clear Completed</button>
+        <ClearTodos {clearCompleted} {completedTodos} />
       </div>
     {/if}
   </section>
